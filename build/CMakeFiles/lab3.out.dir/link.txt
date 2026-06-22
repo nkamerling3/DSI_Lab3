@@ -1,0 +1,1 @@
+/usr/bin/c++ -g -DDEBUG -Wall -Werror -Wextra CMakeFiles/lab3.out.dir/test/test.cpp.o -o lab3.out  libstudent_libs.a 

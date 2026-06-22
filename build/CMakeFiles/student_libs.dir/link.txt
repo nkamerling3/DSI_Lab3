@@ -1,0 +1,2 @@
+/usr/bin/ar qc libstudent_libs.a CMakeFiles/student_libs.dir/src/include/storage/storage_manager.cpp.o CMakeFiles/student_libs.dir/src/include/buffer/buffer_manager.cpp.o
+/usr/bin/ranlib libstudent_libs.a

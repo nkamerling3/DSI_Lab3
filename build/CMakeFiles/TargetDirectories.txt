@@ -1,0 +1,4 @@
+/labs/student_lab_3/build/CMakeFiles/student_libs.dir
+/labs/student_lab_3/build/CMakeFiles/lab3.out.dir
+/labs/student_lab_3/build/CMakeFiles/edit_cache.dir
+/labs/student_lab_3/build/CMakeFiles/rebuild_cache.dir
