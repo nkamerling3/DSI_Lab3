@@ -63,8 +63,43 @@ struct BTree<KeyT, ValueT, ComparatorT, PageSize>::LeafNode : public Node
     /// @param[in] value        The value that should be inserted.
     void insert(const KeyT &key, const ValueT &value)
     {
+        ComparatorT comparator;
         // TODO: Implement this function and remove UNUSED(...) calls.
-        UNUSED(key);
+
+        if (this->count >= kCapacity)
+        {
+            std::cout << "insert: leaf node already at capacity!" << std::endl;
+            return;
+        }
+
+        for (size_t i = 0; i < this->count; i++)
+        {
+            if (comparator(keys[i], key))
+            {
+                for (size_t j = this->count; j > i; j--)
+                {
+                    keys[j] = keys[j - 1];
+                    values[j] = values[j - 1];
+                }
+
+                keys[i] = key;
+                values[i] = value;
+                this->count++;
+                return;
+            }
+
+            if (!comparator(key[i], key) && !comparator(key, key[i]))
+            {
+                keys[i] = key;
+                values[i] = values;
+                return;
+            }
+        }
+        keys[this->count] = key;
+        values[this->count] = value;
+        this->count++
+
+            UNUSED(key);
         UNUSED(value);
     }
 
@@ -76,6 +111,30 @@ struct BTree<KeyT, ValueT, ComparatorT, PageSize>::LeafNode : public Node
     void erase(const KeyT &key)
     {
         // TODO: Implement this function and remove UNUSED(...) calls.
+        ComparatorT comparator;
+        for (size_t i = 0; i < this->count; i++)
+        {
+
+            if (!comparator(keys[i], key) && !comparator(key, keys[i]))
+            {
+                std::cout << "erase: leaf key match found!" << std::endl;
+                for (size_t j = i; j < this->count - 1; j++)
+                {
+                    keys[j] = keys[j + 1];
+                    values[j] = values[j + 1];
+                }
+                this->count--;
+                return;
+            }
+
+            if (!comparator(keys[i], key))
+            {
+                std::cout << "erase: leaf key not found!" << std::endl;
+                return;
+            }
+        }
+
+        std::cout << "erase: leaf key not found!" << std::endl;
         UNUSED(key);
     }
 };
@@ -83,6 +142,13 @@ struct BTree<KeyT, ValueT, ComparatorT, PageSize>::LeafNode : public Node
 // =============================================================================
 // BTree method implementations
 // =============================================================================
+static constexpr uint64_t initializedTag = 123789;
+static constexpr uint64_t metaDataPage = 0;
+struct MetaData
+{
+    uint64_t isInitialized;
+    uint64_t root_page;
+};
 
 /// Constructor.
 template <typename KeyT, typename ValueT, typename ComparatorT, size_t PageSize>
@@ -92,7 +158,34 @@ BTree<KeyT, ValueT, ComparatorT, PageSize>::BTree(BufferManager &bm)
     // TODO
     // (Hint: You need a persistent Btree, so your reconstruction logic should
     //  trace parent relationships upward consistently.)
-    next_page_id = 1;
+
+    // get page 0
+    SlottedPage &initPage = bm.fix_page(metaDataPage);
+
+    // check if page 0 contains tag and metadata
+    MetaData *meta = reinterpret_cast<MetaData *>(initPage.page_data.get());
+    if (meta->isInitialized == initializedTag)
+    {
+        // TODO:: Fix persistence
+        root = meta->root_page;
+    }
+    else
+    {
+        //
+        // SlottedPage &rootPage = bm.fix_page(1);
+        // char* rootPtr = rootPage.page_data.get();
+        // InnerNode* innerRootPtr = new (rootPtr) InnerNode();
+
+        // meta->isInitialized = initializedTag;
+        // meta->root_page = 1;
+        std::cout << "BTREE not yet initialized" << std::endl;
+    }
+
+    // if yes then get the root node
+
+    // if no then create the root node and initialize
+
+    // next_page_id = 1;
 }
 
 /// Lookup an entry in the tree.
@@ -140,6 +233,15 @@ template <typename KeyT, typename ValueT, typename ComparatorT, size_t PageSize>
 void BTree<KeyT, ValueT, ComparatorT, PageSize>::insert(const KeyT &key, const ValueT &value)
 {
     // TODO
+    // initial Insert
+    if (!root.has_value())
+    {
+
+        return;
+    }
+
+    // root has value path:
+
     UNUSED(key);
     UNUSED(value);
     throw std::logic_error("BTree::insert is not implemented");
