@@ -64,6 +64,7 @@ struct BTree<KeyT, ValueT, ComparatorT, PageSize>::LeafNode : public Node
     void insert(const KeyT &key, const ValueT &value)
     {
         ComparatorT comparator;
+
         // TODO: Implement this function and remove UNUSED(...) calls.
 
         if (this->count >= kCapacity)
@@ -72,34 +73,28 @@ struct BTree<KeyT, ValueT, ComparatorT, PageSize>::LeafNode : public Node
             return;
         }
 
-        for (size_t i = 0; i < this->count; i++)
+        // find key position with binary search
+        auto it = std::lower_bound(keys, keys + this->count, key, comparator);
+        int idx = it - keys;
+        if (!comparator(key, keys[idx]))
         {
-            if (comparator(keys[i], key))
-            {
-                for (size_t j = this->count; j > i; j--)
-                {
-                    keys[j] = keys[j - 1];
-                    values[j] = values[j - 1];
-                }
+            std::cout << "insert: key updated at pos " << idx << std::endl;
 
-                keys[i] = key;
-                values[i] = value;
-                this->count++;
-                return;
-            }
-
-            if (!comparator(key[i], key) && !comparator(key, key[i]))
-            {
-                keys[i] = key;
-                values[i] = values;
-                return;
-            }
+            keys[idx] = key;
+            values[idx] = value;
+            return;
         }
-        keys[this->count] = key;
-        values[this->count] = value;
-        this->count++
 
-            UNUSED(key);
+        for (size_t i = this->count; i > idx; i--)
+        {
+            keys[i] = keys[i - 1];
+            values[i] = values[i - 1];
+        }
+        std::cout << "insert: key inserted at pos " << idx << std::endl;
+        keys[idx] = key;
+        values[idx] = value;
+        this->count++;
+
         UNUSED(value);
     }
 
@@ -112,30 +107,30 @@ struct BTree<KeyT, ValueT, ComparatorT, PageSize>::LeafNode : public Node
     {
         // TODO: Implement this function and remove UNUSED(...) calls.
         ComparatorT comparator;
-        for (size_t i = 0; i < this->count; i++)
+
+        // find key position with binary search
+        auto it = std::lower_bound(keys, keys + this->count, key, comparator);
+        int idx = it - keys;
+
+        // key not found
+        if (idx == this->count)
         {
-
-            if (!comparator(keys[i], key) && !comparator(key, keys[i]))
-            {
-                std::cout << "erase: leaf key match found!" << std::endl;
-                for (size_t j = i; j < this->count - 1; j++)
-                {
-                    keys[j] = keys[j + 1];
-                    values[j] = values[j + 1];
-                }
-                this->count--;
-                return;
-            }
-
-            if (!comparator(keys[i], key))
-            {
-                std::cout << "erase: leaf key not found!" << std::endl;
-                return;
-            }
+            std::cout << "erase: leaf key not found!" << std::endl;
+            return;
+        }
+        else if (comparator(key, key[idx]))
+        {
+            std::cout << "erase: leaf key not found!" << std::endl;
+            return;
         }
 
-        std::cout << "erase: leaf key not found!" << std::endl;
-        UNUSED(key);
+        std::cout << "erase: leaf key match found!" << std::endl;
+        for (size_t i = idx; i < this->count - 1; i++)
+        {
+            keys[i] = keys[i + 1];
+            values[i] = values[i + 1];
+        }
+        this->count--;
     }
 };
 
