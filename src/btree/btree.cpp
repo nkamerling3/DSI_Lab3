@@ -24,8 +24,12 @@ struct BTree<KeyT, ValueT, ComparatorT, PageSize>::InnerNode : public Node
     size_t find_child_index(const KeyT &key) const
     {
         // TODO: Implement this function and remove UNUSED(...) calls.
-        UNUSED(key);
-        return 0;
+        ComparatorT comparator;
+        // find the position of the idx using binary search
+        auto it = std::upper_bound(keys, keys + this->count, key, comparator);
+        size_t idx = it - keys;
+
+        return idx;
     }
 
     /// Insert a separator key and a child pointer.
@@ -36,6 +40,27 @@ struct BTree<KeyT, ValueT, ComparatorT, PageSize>::InnerNode : public Node
         // TODO: Implement this function and remove UNUSED(...) calls.
         UNUSED(key);
         UNUSED(child_id);
+
+        if (this->count >= kCapacity - 1)
+        {
+            std::cout << "insert: inner node already at capacity!" << std::endl;
+            return;
+        }
+
+        size_t child_idx = find_child_index(key);
+
+        // TODO: hanlde scenario if key already exists, don't have to update count
+
+        // shift key and child arrays
+        for (size_t i = this->count; i > child_idx; i--)
+        {
+            keys[i] = keys[i - 1];
+            children[i + 1] = children[i];
+        }
+        // Implementation may be incorrect, need to fix
+        keys[child_idx] = key;
+        children[child_idx + 1] = child_id;
+        this->count++;
     }
 };
 
