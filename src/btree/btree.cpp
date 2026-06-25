@@ -98,9 +98,17 @@ struct BTree<KeyT, ValueT, ComparatorT, PageSize>::LeafNode : public Node
             return;
         }
 
+        // if count is 0
+        if (this->count == 0)
+        {
+            keys[0] = key;
+            values[0] = value;
+            this->count++;
+        }
+
         // find key position with binary search
         auto it = std::lower_bound(keys, keys + this->count, key, comparator);
-        int idx = it - keys;
+        size_t idx = it - keys;
         if (!comparator(key, keys[idx]))
         {
             std::cout << "insert: key updated at pos " << idx << std::endl;
@@ -135,7 +143,7 @@ struct BTree<KeyT, ValueT, ComparatorT, PageSize>::LeafNode : public Node
 
         // find key position with binary search
         auto it = std::lower_bound(keys, keys + this->count, key, comparator);
-        int idx = it - keys;
+        size_t idx = it - keys;
 
         // key not found
         if (idx == this->count)
@@ -162,12 +170,12 @@ struct BTree<KeyT, ValueT, ComparatorT, PageSize>::LeafNode : public Node
 // =============================================================================
 // BTree method implementations
 // =============================================================================
-static constexpr uint64_t initializedTag = 123789;
+static constexpr uint64_t containsRootTag = 123789;
 static constexpr uint64_t metaDataPage = 0;
 struct MetaData
 {
-    uint64_t isInitialized;
-    uint64_t root_page;
+    uint64_t rootTag;
+    uint64_t next_page_num;
 };
 
 /// Constructor.
@@ -184,10 +192,15 @@ BTree<KeyT, ValueT, ComparatorT, PageSize>::BTree(BufferManager &bm)
 
     // check if page 0 contains tag and metadata
     MetaData *meta = reinterpret_cast<MetaData *>(initPage.page_data.get());
-    if (meta->isInitialized == initializedTag)
+    if (meta->rootTag == containsRootTag)
     {
         // TODO:: Fix persistence
-        root = meta->root_page;
+        // root = meta->root_page;
+
+        // 1) get next_page_id from persistence and set it
+        // 2) last known node is next_page_id - 1
+        // 3) trace this node all the way back up to root
+        // 4) set root
     }
     else
     {
@@ -205,7 +218,7 @@ BTree<KeyT, ValueT, ComparatorT, PageSize>::BTree(BufferManager &bm)
 
     // if no then create the root node and initialize
 
-    // next_page_id = 1;
+    next_page_id = 1;
 }
 
 /// Lookup an entry in the tree.
@@ -253,10 +266,22 @@ template <typename KeyT, typename ValueT, typename ComparatorT, size_t PageSize>
 void BTree<KeyT, ValueT, ComparatorT, PageSize>::insert(const KeyT &key, const ValueT &value)
 {
     // TODO
-    // initial Insert
+    // initial Insert, get page 1, initialize metadata on page 0, create leaf node
     if (!root.has_value())
     {
+        root = next_page_id;
+        SlottedPage &page = buffer_manager.fix_page(next_page_id);
+        auto leaf = new (page.page_data.get()) LeafNode();
+        leaf->node_id = next_page_id;
+        leaf->insert(key, value);
 
+        next_page_id++;
+        // write next page ID to page 0
+        SlottedPage &metaPage = this->buffer_manager.fix_page(0);
+        // check if page 0 contains tag and metadata
+        MetaData *meta = reinterpret_cast<MetaData *>(metaPage.page_data.get());
+        meta->rootTag = containsRootTag;
+        meta->next_page_num = next_page_id;
         return;
     }
 
