@@ -1,6 +1,18 @@
 #include "btree/btree.hpp"
 #include <stdexcept>
 
+// insert_internal helper function
+template <typename KeyT, typename ValueT, typename ComparatorT, size_t PageSize>
+void insert_internal(
+    BTree<KeyT, ValueT, ComparatorT, PageSize> &tree,
+    const KeyT &key,
+    const ValueT &value,
+    std::vector<std::shared_ptr<typename BTree<KeyT, ValueT, ComparatorT, PageSize>::Node>> &path)
+{
+
+    UNUSED(path);
+}
+
 // =============================================================================
 // InnerNode definition
 // =============================================================================
@@ -286,6 +298,25 @@ void BTree<KeyT, ValueT, ComparatorT, PageSize>::insert(const KeyT &key, const V
     }
 
     // root has value path:
+
+    // scenario 1: root node at capacity, have to split it
+    std::shared_ptr<Node> rootNode = getNode(*root);
+    if (rootNode->is_leaf())
+    {
+        auto leaf = std::static_pointer_cast<LeafNode>(rootNode);
+        if (leaf->count >= LeafNode::kCapacity)
+        {
+            return;
+        }
+    }
+    else
+    {
+        auto inner = std::static_pointer_cast<LeafNode>(rootNode);
+        if (inner->count >= InnerNode::kCapacity - 1)
+        {
+            return;
+        }
+    }
 
     UNUSED(key);
     UNUSED(value);
