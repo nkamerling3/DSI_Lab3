@@ -47,9 +47,13 @@ struct BTree<KeyT, ValueT, ComparatorT, PageSize>::InnerNode : public Node
             return;
         }
 
-        size_t child_idx = find_child_index(key);
+        if (this->count == 0)
+        {
+            keys[0] = key;
+            children[0] = child_id;
+        }
 
-        // TODO: hanlde scenario if key already exists, don't have to update count
+        size_t child_idx = find_child_index(key);
 
         // shift key and child arrays
         for (size_t i = this->count; i > child_idx; i--)
@@ -393,8 +397,42 @@ void BTree<KeyT, ValueT, ComparatorT, PageSize>::splitNode(
     // NOTE: We do not allow overfilling! You must perform the split
     // so you never exceed the node's maximum capacity during insertion.
     // TODO: Implement this function and remove UNUSED(...) calls.
+
+    uint64_t median = node->count / 2;
+    if (node->is_leaf())
+    {
+        // set up newLeaf node
+        auto oldLeaf = std::static_pointer_cast<LeafNode>(node);
+        uint64_t oldCount = oldLeaf->count;
+        SlottedPage &page = buffer_manager.fix_page(next_page_id);
+        auto newLeaf = new (page.page_data.get()) LeafNode();
+        newLeaf->node_id = next_page_id;
+        newLeaf->parent_node_id = node->parent_node_id;
+        newLeaf->next = oldLeaf->next;
+        oldLeaf->next = newLeaf->node_id;
+
+        // redistribute keys to new leaf node
+        for (uint64_t i = median; i < oldCount; i++)
+        {
+            newLeaf->keys[i - median] = oldLeaf->keys[i];
+            newLeaf->values[i - median] = oldLeaf->values[i];
+        }
+        oldLeaf->count = median;
+        newLeaf->count = oldCount - median;
+
+        // insert into parent
+        auto parentNode = std::static_pointer_cast<InnerNode>(getNode(node->parent_node_id));
+
+        uint64_t newLeafStartKey = newLeaf->keys[0];
+        parentNode->insert(newLeafStartKey, newLeaf->node_id);
+
+        next_page_id++;
+        SlottedPage &metaPage = buffer_manager.fix_page(0);
+        MetaData *meta = reinterpret_cast<MetaData *>(metaPage.page_data.get());
+        meta->next_page_num = next_page_id;
+    }
+
     UNUSED(path);
-    UNUSED(node);
 
     return;
 }
