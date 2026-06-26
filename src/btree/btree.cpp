@@ -5,12 +5,52 @@
 template <typename KeyT, typename ValueT, typename ComparatorT, size_t PageSize>
 void insert_internal(
     BTree<KeyT, ValueT, ComparatorT, PageSize> &tree,
+    std::shared_ptr<typename BTree<KeyT, ValueT, ComparatorT, PageSize>::Node> node,
     const KeyT &key,
     const ValueT &value,
     std::vector<std::shared_ptr<typename BTree<KeyT, ValueT, ComparatorT, PageSize>::Node>> &path)
 {
+    if (node->is_leaf())
+    {
+        auto lNode = std::static_pointer_cast<typename BTree<KeyT, ValueT, ComparatorT, PageSize>::LeafNode>(node);
+        if (lNode->count >= BTree<KeyT, ValueT, ComparatorT, PageSize>::LeafNode::kCapacity)
+        {
+            // split node
+            tree.splitNode(path, lNode);
+            // go back up to parentNode
+            uint64_t parentPage = lNode->parent_node_id;
+            auto parentNode = tree.getNode(parentPage);
+            insert_internal(tree, parentNode, key, value, path);
+        }
+        else
+        {
+            lNode->insert(key, value);
+            return;
+        }
+    }
+    else
+    {
+        auto inNode = std::static_pointer_cast<typename BTree<KeyT, ValueT, ComparatorT, PageSize>::InnerNode>(node);
+        if (inNode->count >= BTree<KeyT, ValueT, ComparatorT, PageSize>::InnerNode::kCapacity)
+        {
+            // split node
+            tree.splitNode(path, inNode);
+            uint64_t parentPage = inNode->parent_node_id;
+            auto parentNode = tree.getNode(parentPage);
+            insert_internal(tree, parentNode, key, value, path);
+        }
+        else
+        {
+
+            size_t childIdx = inNode->find_child_index(key);
+            auto childNode = tree.getNode(inNode->children[childIdx]);
+            insert_internal(tree, childNode, key, value, path);
+            return;
+        }
+    }
 
     UNUSED(path);
+    UNUSED(node);
 }
 
 // =============================================================================
@@ -290,7 +330,7 @@ void BTree<KeyT, ValueT, ComparatorT, PageSize>::insert(const KeyT &key, const V
         next_page_id++;
         // write next page ID to page 0
         SlottedPage &metaPage = this->buffer_manager.fix_page(0);
-        // check if page 0 contains tag and metadata
+        // set contains tag and metadata on page 0
         MetaData *meta = reinterpret_cast<MetaData *>(metaPage.page_data.get());
         meta->rootTag = containsRootTag;
         meta->next_page_num = next_page_id;
@@ -303,18 +343,60 @@ void BTree<KeyT, ValueT, ComparatorT, PageSize>::insert(const KeyT &key, const V
     std::shared_ptr<Node> rootNode = getNode(*root);
     if (rootNode->is_leaf())
     {
-        auto leaf = std::static_pointer_cast<LeafNode>(rootNode);
-        if (leaf->count >= LeafNode::kCapacity)
+        auto leafRoot = std::static_pointer_cast<LeafNode>(rootNode);
+        if (leafRoot->count >= LeafNode::kCapacity)
         {
+            // create new inner node to be the root
+            SlottedPage &page = buffer_manager.fix_page(next_page_id);
+            auto newRoot = new (page.page_data.get()) InnerNode();
+            leafRoot->parent_node_id = next_page_id;
+            root = next_page_id;
+            next_page_id++;
+            SlottedPage &metaPage = this->buffer_manager.fix_page(0);
+            // set contains tag and metadata on page 0
+            MetaData *meta = reinterpret_cast<MetaData *>(metaPage.page_data.get());
+            meta->next_page_num = next_page_id;
+
+            // split the root node
+            std::vector<std::shared_ptr<Node>> path;
+            splitNode(path, leafRoot);
+
+            insert_internal(*this, getNode(*root), key, value, path);
+        }
+        else
+        {
+            leafRoot->insert(key, value);
             return;
         }
     }
     else
     {
-        auto inner = std::static_pointer_cast<LeafNode>(rootNode);
-        if (inner->count >= InnerNode::kCapacity - 1)
+        auto innerRoot = std::static_pointer_cast<InnerNode>(rootNode);
+        if (innerRoot->count >= InnerNode::kCapacity - 1)
         {
-            return;
+            // create new inner node to be the root
+            SlottedPage &page = buffer_manager.fix_page(next_page_id);
+            auto nRootNode = getNode(next_page_id) auto newRoot = new (page.page_data.get()) InnerNode();
+            innerRoot->parent_node_id = next_page_id;
+            root = next_page_id;
+            next_page_id++;
+            SlottedPage &metaPage = this->buffer_manager.fix_page(0);
+            // set contains tag and metadata on page 0
+            MetaData *meta = reinterpret_cast<MetaData *>(metaPage.page_data.get());
+            meta->next_page_num = next_page_id;
+
+            // split the inner node
+            std::vector<std::shared_ptr<Node>> path;
+            splitNode(path, innerRoot);
+
+            insert_internal(*this, getNode(*root), key, value, path);
+        }
+        else
+        {
+            size_t childIdx = innerRoot->find_child_index(key);
+            std::shared_ptr<Node> childNode = getNode(innerRoot->children[childIdx]);
+            std::vector<std::shared_ptr<Node>> path;
+            insert_internal(*this, childNode, key, value, path);
         }
     }
 
@@ -337,7 +419,8 @@ void BTree<KeyT, ValueT, ComparatorT, PageSize>::splitNode(
     // TODO: Implement this function and remove UNUSED(...) calls.
     UNUSED(path);
     UNUSED(node);
-    throw std::logic_error("BTree::splitNode is not implemented");
+
+    return;
 }
 
 template <typename KeyT, typename ValueT, typename ComparatorT, size_t PageSize>
