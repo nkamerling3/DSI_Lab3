@@ -231,8 +231,14 @@ template <typename KeyT, typename ValueT, typename ComparatorT, size_t PageSize>
 std::optional<ValueT>
 BTree<KeyT, ValueT, ComparatorT, PageSize>::lookup(const KeyT &key)
 {
+    // if empty, return immediately
+    if (!root.has_value())
+    {
+        return std::nullopt;
+    }
     // TODO
     // start at root
+
     auto node = getNode(*root);
 
     // traverse while root is not empty
@@ -269,14 +275,65 @@ template <typename KeyT, typename ValueT, typename ComparatorT, size_t PageSize>
 std::vector<std::pair<KeyT, ValueT>>
 BTree<KeyT, ValueT, ComparatorT, PageSize>::rangeQuery(const KeyT &low, const KeyT &high)
 {
+    std::vector<std::pair<KeyT, ValueT>> range;
     // TODO
-    UNUSED(low);
-    UNUSED(high);
+    // if empty, return immediately
+    if (!root.has_value())
+    {
+        return range;
+    }
+
+    auto node = getNode(*root);
 
     // vertical traversal to low
+    while (!node->is_leaf())
+    {
+        auto inNode = std::static_pointer_cast<InnerNode>(node);
+        uint64_t childIdx = inNode->find_child_index(low);
+        uint64_t childPage = inNode->children[childIdx];
+        auto childNode = getNode(childPage);
+        node = childNode;
+    }
+
+    // once it is a leaf, binary search to find key
+    ComparatorT comparator;
+    auto lNode = std::static_pointer_cast<LeafNode>(node);
+    auto it = std::lower_bound(lNode->keys, lNode->keys + lNode->count, low, comparator);
+    uint64_t idx = it - lNode->keys;
+    if (idx >= lNode->count)
+    {
+        return range;
+    }
+
+    // get values from first leaf node
+    for (uint64_t i = idx; i < lNode->count; i++)
+    {
+        if (comparator(high, lNode->keys[i]))
+        {
+            return range;
+        }
+        std::pair<KeyT, ValueT> p = {lNode->keys[i], lNode->values[i]};
+        range.pushback(p);
+    }
 
     // horizontal traversal to high
-    throw std::logic_error("BTree::rangeQuery is not implemented");
+    uint64_t nextNodeID = lNode->next;
+    while (nextNodeID != INVALID_VALUE)
+    {
+        auto leNode = std::static_pointer_cast<LeafNode>(getNode(nextNodeID));
+        for (uint64_t i = 0; i < leNode->count; i++)
+        {
+            if (comparator(high, leNode->keys[i]))
+            {
+                return range;
+            }
+            std::pair<KeyT, ValueT> p = {lNode->keys[i], lNode->values[i]};
+            range.pushback(p);
+        }
+        nextNodeID = leNode->next;
+    }
+
+    return range;
 }
 
 /// Erase an entry in the tree.
