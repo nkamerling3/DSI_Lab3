@@ -232,8 +232,34 @@ std::optional<ValueT>
 BTree<KeyT, ValueT, ComparatorT, PageSize>::lookup(const KeyT &key)
 {
     // TODO
-    UNUSED(key);
-    throw std::logic_error("BTree::lookup is not implemented");
+    // start at root
+    auto node = getNode(*root);
+
+    // traverse while root is not empty
+    while (!node->is_leaf())
+    {
+        auto inNode = std::static_pointer_cast<InnerNode>(node);
+        uint64_t childIdx = inNode->find_child_index(key);
+        uint64_t childPage = inNode->children[childIdx];
+        auto childNode = getNode(childPage);
+        node = childNode;
+    }
+
+    // once it is a leaf, binary search to find key
+    ComparatorT comparator;
+    auto lNode = std::static_pointer_cast<LeafNode>(node);
+    auto it = std::lower_bound(lNode->keys, lNode->keys + lNode->count, key, comparator);
+    uint64_t idx = it - lNode->keys;
+    if (idx >= lNode->count)
+    {
+        return std::nullopt;
+    }
+    if (!comparator(key, lNode->keys[idx]))
+    {
+        ValueT target = lNode->keys[idx];
+        return target;
+    }
+    return std::nullopt;
 }
 
 /// Returns the range of values between low and high, both inclusive.
