@@ -205,6 +205,17 @@ BTree<KeyT, ValueT, ComparatorT, PageSize>::BTree(BufferManager &bm)
         // 2) last known node is next_page_id - 1
         // 3) trace this node all the way back up to root
         // 4) set root
+
+        uint64_t lastNodeID = next_page_id - 1;
+
+        // trace lastNodeID back up to parent
+        auto node = getNode(lastNodeID);
+        while (node->parent_node_id != INVALID_VALUE)
+        {
+            auto parentNode = getNode(node->parent_node_id);
+            node = parentNode;
+        }
+        root = node->node_id;
     }
     else
     {
@@ -216,13 +227,8 @@ BTree<KeyT, ValueT, ComparatorT, PageSize>::BTree(BufferManager &bm)
         // meta->isInitialized = initializedTag;
         // meta->root_page = 1;
         std::cout << "BTREE not yet initialized" << std::endl;
+        next_page_id = 1;
     }
-
-    // if yes then get the root node
-
-    // if no then create the root node and initialize
-
-    next_page_id = 1;
 }
 
 /// Lookup an entry in the tree.
