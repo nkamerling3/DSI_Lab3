@@ -272,6 +272,10 @@ BTree<KeyT, ValueT, ComparatorT, PageSize>::rangeQuery(const KeyT &low, const Ke
     // TODO
     UNUSED(low);
     UNUSED(high);
+
+    // vertical traversal to low
+
+    // horizontal traversal to high
     throw std::logic_error("BTree::rangeQuery is not implemented");
 }
 
@@ -285,8 +289,21 @@ void BTree<KeyT, ValueT, ComparatorT, PageSize>::erase(const KeyT &key)
     // or node merging. A full B-Tree implementation would normally check for
     // underflow (e.g., node capacity dropping below half) and rebalance.
     // Here, you just need to remove the entry if it exists.
-    UNUSED(key);
-    throw std::logic_error("BTree::erase is not implemented");
+    auto node = getNode(*root);
+
+    // traverse while root is not empty
+    while (!node->is_leaf())
+    {
+        auto inNode = std::static_pointer_cast<InnerNode>(node);
+        uint64_t childIdx = inNode->find_child_index(key);
+        uint64_t childPage = inNode->children[childIdx];
+        auto childNode = getNode(childPage);
+        node = childNode;
+    }
+
+    // once it is a leaf, binary search to find key
+    auto lNode = std::static_pointer_cast<LeafNode>(node);
+    lNode->erase(key);
 }
 
 /// Inserts a new entry into the tree.
