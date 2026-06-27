@@ -108,11 +108,21 @@ struct BTree<KeyT, ValueT, ComparatorT, PageSize>::LeafNode : public Node
             keys[0] = key;
             values[0] = value;
             this->count++;
+            std::cout << "insert: initial key inserted " << std::endl;
+            return;
         }
 
         // find key position with binary search
         auto it = std::lower_bound(keys, keys + this->count, key, comparator);
-        size_t idx = it - keys;
+        uint64_t idx = it - keys;
+        if (idx == this->count)
+        {
+            keys[idx] = key;
+            values[idx] = value;
+            std::cout << "insert: key inserted at end pos " << idx << std::endl;
+            this->count++;
+            return;
+        }
         if (!comparator(key, keys[idx]))
         {
             std::cout << "insert: key updated at pos " << idx << std::endl;
@@ -131,8 +141,6 @@ struct BTree<KeyT, ValueT, ComparatorT, PageSize>::LeafNode : public Node
         keys[idx] = key;
         values[idx] = value;
         this->count++;
-
-        UNUSED(value);
     }
 
     /// Erase a key.
@@ -155,14 +163,14 @@ struct BTree<KeyT, ValueT, ComparatorT, PageSize>::LeafNode : public Node
             std::cout << "erase: leaf key not found!" << std::endl;
             return;
         }
-        else if (comparator(key, key[idx]))
+        else if (comparator(key, keys[idx]))
         {
             std::cout << "erase: leaf key not found!" << std::endl;
             return;
         }
 
         std::cout << "erase: leaf key match found!" << std::endl;
-        for (size_t i = idx; i < this->count - 1; i++)
+        for (size_t i = idx; i < (this->count - 1); i++)
         {
             keys[i] = keys[i + 1];
             values[i] = values[i + 1];
@@ -268,7 +276,7 @@ BTree<KeyT, ValueT, ComparatorT, PageSize>::lookup(const KeyT &key)
     }
     if (!comparator(key, lNode->keys[idx]))
     {
-        ValueT target = lNode->keys[idx];
+        ValueT target = lNode->values[idx];
         return target;
     }
     return std::nullopt;
@@ -319,7 +327,7 @@ BTree<KeyT, ValueT, ComparatorT, PageSize>::rangeQuery(const KeyT &low, const Ke
             return range;
         }
         std::pair<KeyT, ValueT> p = {lNode->keys[i], lNode->values[i]};
-        range.pushback(p);
+        range.push_back(p);
     }
 
     // horizontal traversal to high
@@ -334,7 +342,7 @@ BTree<KeyT, ValueT, ComparatorT, PageSize>::rangeQuery(const KeyT &low, const Ke
                 return range;
             }
             std::pair<KeyT, ValueT> p = {lNode->keys[i], lNode->values[i]};
-            range.pushback(p);
+            range.push_back(p);
         }
         nextNodeID = leNode->next;
     }
