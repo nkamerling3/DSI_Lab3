@@ -170,7 +170,7 @@ struct BTree<KeyT, ValueT, ComparatorT, PageSize>::LeafNode : public Node
         }
 
         std::cout << "erase: leaf key match found!" << std::endl;
-        for (size_t i = idx; i < (this->count - 1); i++)
+        for (size_t i = idx; i + 1 < this->count; i++)
         {
             keys[i] = keys[i + 1];
             values[i] = values[i + 1];
