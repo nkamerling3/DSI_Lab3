@@ -421,10 +421,61 @@ void BTree<KeyT, ValueT, ComparatorT, PageSize>::splitNode(
         newLeaf->count = oldCount - median;
 
         // insert into parent
+        // TODO: handle case when parent is empty
         auto parentNode = std::static_pointer_cast<InnerNode>(getNode(node->parent_node_id));
 
-        uint64_t newLeafStartKey = newLeaf->keys[0];
-        parentNode->insert(newLeafStartKey, newLeaf->node_id);
+        KeyT medKey = newLeaf->keys[0];
+        // put 0 count parent case here
+        if (parentNode->count == 0)
+        {
+            parentNode->insert(medKey, oldLeaf->node_id);
+        }
+        parentNode->insert(medKey, newLeaf->node_id);
+
+        next_page_id++;
+        SlottedPage &metaPage = buffer_manager.fix_page(0);
+        MetaData *meta = reinterpret_cast<MetaData *>(metaPage.page_data.get());
+        meta->next_page_num = next_page_id;
+    }
+    // node is inner node
+    else
+    {
+        // set up newInner node
+        auto oldInner = std::static_pointer_cast<InnerNode>(node);
+        uint64_t oldCount = oldInner->count;
+        SlottedPage &page = buffer_manager.fix_page(next_page_id);
+        auto newInner = new (page.page_data.get()) InnerNode();
+        newInner->node_id = next_page_id;
+        newInner->parent_node_id = node->parent_node_id;
+
+        // get the median key to insert into parent
+        KeyT medKey = oldInner->keys[median];
+
+        // redistribute keys to new leaf node
+        for (uint64_t i = median + 1; i < oldCount; i++)
+        {
+            newInner->keys[i - (median + 1)] = oldInner->keys[i];
+        }
+
+        // redistribute children to new leaf nodes
+        for (uint64_t i = median + 1; i < oldCount + 1; i++)
+        {
+            newInner->children[i - (median + 1)] = oldInner->keys[i];
+        }
+
+        // Edge case:  if capacity is 3 or less, then algorithm breaks (assume edge case not hit for now)
+        oldInner->count = median;
+        newInner->count = oldCount - median - 1;
+
+        // insert into parent
+        auto parentNode = std::static_pointer_cast<InnerNode>(getNode(node->parent_node_id));
+
+        // put 0 count parent case here
+        if (parentNode->count == 0)
+        {
+            parentNode->insert(medKey, oldInner->node_id);
+        }
+        parentNode->insert(medKey, newInner->node_id);
 
         next_page_id++;
         SlottedPage &metaPage = buffer_manager.fix_page(0);
