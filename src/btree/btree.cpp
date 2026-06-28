@@ -11,7 +11,7 @@ struct BTree<KeyT, ValueT, ComparatorT, PageSize>::InnerNode : public Node
     /// TODO: Calculate the maximum capacity of this node.
     /// HINT: Use the template parameter PageSize and sizeof() arithmetic
     /// to determine how many entries can fit in a single page.
-    static constexpr uint32_t kCapacity = (PageSize - sizeof(Node) + sizeof(ValueT)) / (sizeof(KeyT) + sizeof(ValueT)); // fill in your own here
+    static constexpr uint32_t kCapacity = (PageSize - sizeof(Node)) / (sizeof(KeyT) + sizeof(uint64_t)); // fill in your own here
 
     // DO NOT MODIFY — InnerNode layout
     KeyT keys[kCapacity - 1];
@@ -98,7 +98,7 @@ struct BTree<KeyT, ValueT, ComparatorT, PageSize>::LeafNode : public Node
     /// TODO: Calculate the maximum capacity of this node.
     /// HINT: Use the template parameter PageSize and sizeof() arithmetic
     /// to determine how many entries can fit in a single page.
-    static constexpr uint32_t kCapacity = (PageSize - sizeof(Node)) / (sizeof(KeyT) + sizeof(ValueT)); // fill in your own here
+    static constexpr uint32_t kCapacity = (PageSize - sizeof(Node) - sizeof(uint64_t)) / (sizeof(KeyT) + sizeof(ValueT)); // fill in your own here
 
     // DO NOT MODIFY — LeafNode layout
     KeyT keys[kCapacity];
