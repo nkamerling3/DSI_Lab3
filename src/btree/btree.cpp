@@ -81,7 +81,7 @@ struct BTree<KeyT, ValueT, ComparatorT, PageSize>::InnerNode : public Node
         {
             children[i] = children[i - 1];
         }
-        // Implementation may be incorrect, need to fix
+
         keys[insert_idx] = key;
         children[child_insert_idx] = child_id;
         this->count++;
@@ -98,7 +98,7 @@ struct BTree<KeyT, ValueT, ComparatorT, PageSize>::LeafNode : public Node
     /// TODO: Calculate the maximum capacity of this node.
     /// HINT: Use the template parameter PageSize and sizeof() arithmetic
     /// to determine how many entries can fit in a single page.
-    static constexpr uint32_t kCapacity = (PageSize - sizeof(Node) - sizeof(uint64_t)) / (sizeof(KeyT) + sizeof(ValueT)); // fill in your own here
+    static constexpr uint32_t kCapacity = (PageSize - sizeof(Node)) / (sizeof(KeyT) + sizeof(ValueT)); // fill in your own here
 
     // DO NOT MODIFY — LeafNode layout
     KeyT keys[kCapacity];
@@ -368,7 +368,7 @@ BTree<KeyT, ValueT, ComparatorT, PageSize>::rangeQuery(const KeyT &low, const Ke
             {
                 return range;
             }
-            std::pair<KeyT, ValueT> p = {lNode->keys[i], lNode->values[i]};
+            std::pair<KeyT, ValueT> p = {leNode->keys[i], leNode->values[i]};
             range.push_back(p);
         }
         nextNodeID = leNode->next;
