@@ -446,7 +446,6 @@ void BTree<KeyT, ValueT, ComparatorT, PageSize>::insert(const KeyT &key, const V
                     SlottedPage &page = buffer_manager.fix_page(next_page_id);
                     auto newRoot = new (page.page_data.get()) InnerNode();
                     newRoot->node_id = next_page_id;
-                    uint64_t rootID = next_page_id;
                     leafRoot->parent_node_id = next_page_id;
                     uint64_t newRootID  = next_page_id;
                     next_page_id++;
@@ -454,11 +453,12 @@ void BTree<KeyT, ValueT, ComparatorT, PageSize>::insert(const KeyT &key, const V
                     SlottedPage &metaPage = this->buffer_manager.fix_page(0);
                     MetaData *meta = reinterpret_cast<MetaData *>(metaPage.page_data.get());
                     meta->next_page_num = next_page_id;
-                    meta->rootPage = rootID;
+                    
 
                     std::vector<std::shared_ptr<Node>> path;
                     splitNode(path, leafRoot);
                     root = newRootID;
+                    meta->rootPage = newRootID;
                     self(self, getNode(*root), key, value, path);
                 }
                 else
@@ -474,7 +474,6 @@ void BTree<KeyT, ValueT, ComparatorT, PageSize>::insert(const KeyT &key, const V
                     SlottedPage &page = buffer_manager.fix_page(next_page_id);
                     auto newRoot = new (page.page_data.get()) InnerNode();
                     newRoot->node_id = next_page_id;
-                    uint64_t rootID = next_page_id;
                     innerRoot->parent_node_id = next_page_id;
                     uint64_t newRootID  = next_page_id;
                     next_page_id++;
@@ -483,11 +482,12 @@ void BTree<KeyT, ValueT, ComparatorT, PageSize>::insert(const KeyT &key, const V
                     SlottedPage &metaPage = this->buffer_manager.fix_page(0);
                     MetaData *meta = reinterpret_cast<MetaData *>(metaPage.page_data.get());
                     meta->next_page_num = next_page_id;
-                    meta->rootPage = rootID;
+                    
 
                     std::vector<std::shared_ptr<Node>> path;
                     splitNode(path, innerRoot);
                     root = newRootID;
+                    meta->rootPage = newRootID;
                     self(self, getNode(*root), inner_key, inner_value, path);
                 }
                 else
@@ -704,6 +704,9 @@ void BTree<KeyT, ValueT, ComparatorT, PageSize>::splitNode(
 
         // put 0 count parent case here
         //handle root case inside inner
+         if(node->node_id == *this->root){
+            parentNode->children[0] = *this->root;
+        }
         parentNode->insert(medKey, newInner->node_id);
 
         next_page_id++;
