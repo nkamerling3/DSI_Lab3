@@ -37,6 +37,7 @@ struct BTree<KeyT, ValueT, ComparatorT, PageSize>::InnerNode : public Node
     /// @param[in] child_id     The id of the child page that should be inserted.
     void insert(const KeyT &key, uint64_t child_id)
     {
+        ComparatorT comparator;
         // TODO: Implement this function and remove UNUSED(...) calls.
         UNUSED(key);
         UNUSED(child_id);
@@ -46,24 +47,46 @@ struct BTree<KeyT, ValueT, ComparatorT, PageSize>::InnerNode : public Node
             std::cout << "insert: inner node already at capacity!" << std::endl;
             return;
         }
-
+        // 0 case
         if (this->count == 0)
         {
             keys[0] = key;
             children[0] = child_id;
+            this->count++;
+            return;
         }
 
-        size_t child_idx = find_child_index(key);
+        // 1 case and the keys are equal
+        if (this->count == 1)
+        {
+            if (!comparator(key, keys[0]) && !comparator(keys[0], key))
+            {
+                children[1] = child_id;
+                return;
+            }
+        }
+
+        // 1 case and the counts aren't equal
+
+        size_t insert_idx = find_child_index(key);
+        size_t child_insert_idx = insert_idx;
+        if (insert_idx > 0)
+        {
+            child_insert_idx++;
+        }
 
         // shift key and child arrays
-        for (size_t i = this->count; i > child_idx; i--)
+        for (size_t i = this->count; i > insert_idx; i--)
         {
             keys[i] = keys[i - 1];
-            children[i + 1] = children[i];
+        }
+        for (size_t i = this->count + 1; i > child_insert_idx; i--)
+        {
+            children[i] = children[i - 1];
         }
         // Implementation may be incorrect, need to fix
-        keys[child_idx] = key;
-        children[child_idx + 1] = child_id;
+        keys[insert_idx] = key;
+        children[child_insert_idx] = child_id;
         this->count++;
     }
 };
@@ -392,6 +415,7 @@ void BTree<KeyT, ValueT, ComparatorT, PageSize>::insert(const KeyT &key, const V
         auto leaf = new (page.page_data.get()) LeafNode();
         leaf->node_id = next_page_id;
         leaf->insert(key, value);
+        std::cout << "inert initialize root case: noxt_page_id is now: " << next_page_id << std::endl;
 
         next_page_id++;
         // write next page ID to page 0
@@ -409,6 +433,8 @@ void BTree<KeyT, ValueT, ComparatorT, PageSize>::insert(const KeyT &key, const V
                                const ValueT &inner_value,
                                std::vector<std::shared_ptr<Node>> &path) -> void
     {
+        // add in special logic for root
+
         if (node->is_leaf())
         {
             auto lNode = std::static_pointer_cast<LeafNode>(node);
@@ -455,6 +481,7 @@ void BTree<KeyT, ValueT, ComparatorT, PageSize>::insert(const KeyT &key, const V
             leafRoot->parent_node_id = next_page_id;
             root = next_page_id;
             next_page_id++;
+            std::cout << "inert new root leaf case: noxt_page_id is now: " << next_page_id << std::endl;
             SlottedPage &metaPage = this->buffer_manager.fix_page(0);
             MetaData *meta = reinterpret_cast<MetaData *>(metaPage.page_data.get());
             meta->next_page_num = next_page_id;
@@ -481,6 +508,8 @@ void BTree<KeyT, ValueT, ComparatorT, PageSize>::insert(const KeyT &key, const V
             innerRoot->parent_node_id = next_page_id;
             root = next_page_id;
             next_page_id++;
+
+            std::cout << "inert new root inner case: noxt_page_id is now: " << next_page_id << std::endl;
             SlottedPage &metaPage = this->buffer_manager.fix_page(0);
             MetaData *meta = reinterpret_cast<MetaData *>(metaPage.page_data.get());
             meta->next_page_num = next_page_id;
@@ -512,6 +541,8 @@ void BTree<KeyT, ValueT, ComparatorT, PageSize>::splitNode(
     // so you never exceed the node's maximum capacity during insertion.
     // TODO: Implement this function and remove UNUSED(...) calls.
 
+    // std::cout << "printing tree info" << std::endl;
+
     uint64_t median = node->count / 2;
     if (node->is_leaf())
     {
@@ -524,6 +555,8 @@ void BTree<KeyT, ValueT, ComparatorT, PageSize>::splitNode(
         newLeaf->parent_node_id = node->parent_node_id;
         newLeaf->next = oldLeaf->next;
         oldLeaf->next = newLeaf->node_id;
+        std::cout << "print new node and old nodes leaf case " << next_page_id << std::endl;
+        std::cout << "new node: " << next_page_id << std::endl;
 
         // redistribute keys to new leaf node
         for (uint64_t i = median; i < oldCount; i++)
@@ -533,6 +566,7 @@ void BTree<KeyT, ValueT, ComparatorT, PageSize>::splitNode(
         }
         oldLeaf->count = median;
         newLeaf->count = oldCount - median;
+        printNode(getNode(next_page_id), 0);
 
         // insert into parent
         // TODO: handle case when parent is empty
@@ -547,6 +581,8 @@ void BTree<KeyT, ValueT, ComparatorT, PageSize>::splitNode(
         parentNode->insert(medKey, newLeaf->node_id);
 
         next_page_id++;
+
+        std::cout << "splitNode leaf: noxt_page_id is now: " << next_page_id << std::endl;
         SlottedPage &metaPage = buffer_manager.fix_page(0);
         MetaData *meta = reinterpret_cast<MetaData *>(metaPage.page_data.get());
         meta->next_page_num = next_page_id;
@@ -562,6 +598,10 @@ void BTree<KeyT, ValueT, ComparatorT, PageSize>::splitNode(
         newInner->node_id = next_page_id;
         newInner->parent_node_id = node->parent_node_id;
 
+        std::cout << "print new node and old nodes inner case" << next_page_id << std::endl;
+        std::cout << "new node: " << next_page_id << std::endl;
+        printNode(getNode(next_page_id), 0);
+
         // get the median key to insert into parent
         KeyT medKey = oldInner->keys[median];
 
@@ -571,17 +611,31 @@ void BTree<KeyT, ValueT, ComparatorT, PageSize>::splitNode(
             newInner->keys[i - (median + 1)] = oldInner->keys[i];
         }
 
-        // redistribute children to new leaf nodes
+        // store oldInner and newInner Ids in memory so we can get them again
+        uint64_t oldInnerID = oldInner->node_id;
+        uint64_t newInnerID = newInner->node_id;
+        // redistribute children to new inner nodes
         for (uint64_t i = median + 1; i < oldCount + 1; i++)
         {
-            newInner->children[i - (median + 1)] = oldInner->keys[i];
+            oldInner = std::static_pointer_cast<InnerNode>(getNode(oldInnerID));
+            newInner = std::static_pointer_cast<InnerNode>(getNode(newInnerID)).get();
+            newInner->children[i - (median + 1)] = oldInner->children[i];
+            // Update the child's parent_node_id to reflect its new parent
+            std::cout << "redistribute child path" << std::endl;
+            auto child = getNode(oldInner->children[i]);
+            child->parent_node_id = newInner->node_id;
         }
+
+        // get the correct values of oldInner and new Inner back
+        oldInner = std::static_pointer_cast<InnerNode>(getNode(oldInnerID));
+        newInner = std::static_pointer_cast<InnerNode>(getNode(newInnerID)).get();
 
         // Edge case:  if capacity is 3 or less, then algorithm breaks (assume edge case not hit for now)
         oldInner->count = median;
         newInner->count = oldCount - median - 1;
 
         // insert into parent
+        std::cout << "splitNode inner: getting parent node " << node->parent_node_id << std::endl;
         auto parentNode = std::static_pointer_cast<InnerNode>(getNode(node->parent_node_id));
 
         // put 0 count parent case here
@@ -592,6 +646,9 @@ void BTree<KeyT, ValueT, ComparatorT, PageSize>::splitNode(
         parentNode->insert(medKey, newInner->node_id);
 
         next_page_id++;
+
+        std::cout << "splitNode inner: noxt_page_id is now: " << next_page_id << std::endl;
+
         SlottedPage &metaPage = buffer_manager.fix_page(0);
         MetaData *meta = reinterpret_cast<MetaData *>(metaPage.page_data.get());
         meta->next_page_num = next_page_id;
@@ -635,7 +692,7 @@ void BTree<KeyT, ValueT, ComparatorT, PageSize>::printNode(
         auto inner = std::static_pointer_cast<InnerNode>(node);
         std::cout << indent << "InnerNode (id=" << inner->node_id
                   << ", count=" << inner->count << "): ";
-        for (size_t i = 0; i < inner->count - 1; i++)
+        for (size_t i = 0; i + 1 < inner->count; i++)
         {
             std::cout << "|" << inner->keys[i] << "| ";
         }
